@@ -3,6 +3,8 @@ package selfupdate
 import (
 	"fmt"
 	"io"
+	"net"
+	"time"
 	"net/http"
 )
 
@@ -17,10 +19,29 @@ type Requester interface {
 type HTTPRequester struct {
 }
 
+var timeout = time.Duration(15 * time.Second)
+
+func dialTimeout(network, addr string) (net.Conn, error) {
+    return net.DialTimeout(network, addr, timeout)
+}
+
 // Fetch will return an HTTP request to the specified url and return
 // the body of the result. An error will occur for a non 200 status code.
 func (httpRequester *HTTPRequester) Fetch(url string) (io.ReadCloser, error) {
-	resp, err := http.Get(url)
+	//client := &http.Client{}
+	transport := http.Transport{
+        Dial: dialTimeout,
+    }
+    
+	client := http.Client{
+		Timeout: timeout,
+		Transport: &transport,
+	}
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Add("accept-encoding", "deflate")
+	//fmt.Println("req.Header")
+	//fmt.Println(req.Header)
+	resp, err := client.Do(req) //http.Get(url)
 	if err != nil {
 		return nil, err
 	}

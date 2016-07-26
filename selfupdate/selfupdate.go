@@ -77,7 +77,8 @@ var defaultHTTPRequester = HTTPRequester{}
 type Updater struct {
 	CurrentVersion string    // Currently running version.
 	ApiURL         string    // Base URL for API requests (json files).
-	CmdName        string    // Command name is appended to the ApiURL like http://apiurl/CmdName/. This represents one binary.
+	CmdName        string    // Command name is appended to the ApiURL like http://apiurl/CmdName/.
+	//This represents one binary.
 	BinURL         string    // Base URL for full binary downloads.
 	DiffURL        string    // Base URL for diff downloads.
 	Dir            string    // Directory to store selfupdate state.
@@ -96,10 +97,12 @@ func (u *Updater) getExecRelativeDir(dir string) string {
 
 // BackgroundRun starts the update check and apply cycle.
 func (u *Updater) BackgroundRun() error {
+	
 	os.MkdirAll(u.getExecRelativeDir(u.Dir), 0777)
 	if u.wantUpdate() {
 		if err := up.CanUpdate(); err != nil {
 			// fail
+			fmt.Println(err)
 			return err
 		}
 		//self, err := osext.Executable()
@@ -109,6 +112,7 @@ func (u *Updater) BackgroundRun() error {
 		//}
 		// TODO(bgentry): logger isn't on Windows. Replace w/ proper error reports.
 		if err := u.update(); err != nil {
+			fmt.Println(err)
 			return err
 		}
 	}
@@ -125,6 +129,7 @@ func (u *Updater) wantUpdate() bool {
 }
 
 func (u *Updater) update() error {
+	//fmt.Println("Inside Update")
 	path, err := osext.Executable()
 	if err != nil {
 		return err
@@ -229,19 +234,34 @@ func (u *Updater) fetchAndVerifyFullBin() ([]byte, error) {
 
 func (u *Updater) fetchBin() ([]byte, error) {
 	r, err := u.fetch(u.BinURL + u.CmdName + "/" + u.Info.Version + "/" + plat + ".gz")
+	//fmt.Println("Fetching full binary:", u.BinURL + u.CmdName + "/" + u.Info.Version + "/" + plat + ".gz")
 	if err != nil {
+		fmt.Println("error in fetchBin ", err)
 		return nil, err
 	}
+	
+	// outFile, err := os.Create("/home/ubuntu/golang/bin/device-art-xc/1.0.0/device-art/test.gz")
+	// if err != nil {
+	// 	fmt.Println("error creating file ", err)
+	// }
+	// defer outFile.Close()
+	// _, err = io.Copy(outFile, r)
+	
 	defer r.Close()
 	buf := new(bytes.Buffer)
 	gz, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, err
-	}
+		//fmt.Println("error in fetchBin: Newreader", err)
+		// if _, err = io.Copy(buf, r); err != nil {
+		// 	fmt.Println("error in fetchBin: Newreader: copy anyways", err)
+			return nil, err
+		// }
+	} //else 
 	if _, err = io.Copy(buf, gz); err != nil {
 		return nil, err
 	}
 
+	//fmt.Println("Success in fetchBin:", len(buf.Bytes()))
 	return buf.Bytes(), nil
 }
 
@@ -285,6 +305,8 @@ func readTime(path string) time.Time {
 func verifySha(bin []byte, sha []byte) bool {
 	h := sha256.New()
 	h.Write(bin)
+	//fmt.Println("VerifyingSha")
+	//fmt.Printf("%d:%d\n", len(bin), len(sha))
 	return bytes.Equal(h.Sum(nil), sha)
 }
 
